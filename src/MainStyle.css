@@ -1,0 +1,56 @@
+/* CSS file */
+LinkButton
+{
+	themeColor: #6ABBEE;
+}
+
+
+Map
+{
+	navigation-style-name: Navigation;
+}
+Navigation
+{
+	top: 6;
+    left: 6;
+    right: NaN;
+    navigation-minus-button-style-name: NavigationMinusButton;
+    navigation-plus-button-style-name: NavigationPlusButton;
+    navigation-slider-style-name: NavigationSlider;
+    fill: #FFFFFF;
+    fill-colors: #FFFFFF, #FFFFFF, #FFFFFF, #FFFFFF;
+    area-fill: #FFFFFF;
+    theme-color: #7B7B79;
+    background-color: #FFFFFF;
+    background-alpha: 1.0;
+    border-color: #000000;
+    border-alpha: 1.0;
+    border-thickness: 2;
+    drop-shadow-color: #FFFFFF;
+    drop-shadow-enabled: true;
+	shadowDirection: right;
+	shadowDistance: 4;
+    
+}
+
+NavigationSlider
+{
+	dataTipPlacement: "left";
+    showScaleInDataTip: false;
+    tickColor: #000000;
+    tickLength: 10;
+    tickOffset: 13;
+    tickThickness: 3;
+    borderColor: #FFFFFF;
+    themeColor: haloOrange;
+    invertThumbDirection:true;
+    showTrackHighlight:true;
+    
+
+}
+NavigationPlusButton
+{
+}
+NavigationMinusButton
+{
+}

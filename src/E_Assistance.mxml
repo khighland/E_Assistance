@@ -1,0 +1,852 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application 
+			   xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx" 
+			   xmlns:esri="http://www.esri.com/2008/ags" 
+			   xmlns:EncComponents="EncComponents.*"
+	pageTitle ="City of Encinitas Asset locator"
+	creationComplete="init()" height="100%" width="100%" backgroundColor="#FFFEFE"
+	styleName="plain">
+	
+	<s:layout>
+		<s:BasicLayout>
+			
+		</s:BasicLayout>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[
+		 
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.Map;
+			import com.esri.ags.SpatialReference;
+			import com.esri.ags.events.ExtentEvent;
+			import com.esri.ags.events.GeometryServiceEvent;
+			import com.esri.ags.events.GraphicEvent;
+			import com.esri.ags.events.IdentifyEvent;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.geometry.*;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.supportClasses.LayerInfo;
+			import com.esri.ags.symbols.Symbol;
+			import com.esri.ags.tasks.GeometryService;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.AddressCandidate;
+			import com.esri.ags.tasks.supportClasses.IdentifyParameters;
+			import com.esri.ags.tasks.supportClasses.IdentifyResult;
+			import com.esri.ags.tasks.supportClasses.Query;
+			
+			import flash.filters.GlowFilter;
+			import flash.net.navigateToURL;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.IViewCursor;
+			import mx.controls.Alert;
+			import mx.controls.DataGrid;
+			import mx.controls.dataGridClasses.*;
+			import mx.effects.Move;
+			import mx.events.CloseEvent;
+			import mx.events.ItemClickEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.events.FaultEvent;
+			
+			[Bindable]
+			private var asd:ArrayCollection = new ArrayCollection;
+			private var params:Object = getURLParameters();
+			public var floatingWindow:InfoFloatPanel;
+			private var hashmapOfExistingGraphics:Object = new Object();
+			private var dynamLayerID:LayerInfo = new LayerInfo;
+
+			private function init():void
+			{
+				showFloatingWindow();  //Show floating panel with Instructions
+        		dgAssetDetails.rowCount= asd.length; //trim the number of rows shown by default
+        		
+        		//If an address parameter has been passed to the app in the URL then pass the value to
+        		//a geocoding service
+        		if (params ["search"])
+				{
+					var addr:String=(params ["search"].toString());
+					//var addr:String = "414 Encinitas Blvd"
+					var addressObject:Object = 
+					{
+						Street: addr
+					}
+					var myOutFields:Array = ["Loc_name"];
+					//Alert.show(addr.substring(0,(addr.lastIndexOf(" "))))
+					geoCodeTask.addressToLocations(addressObject,myOutFields, new AsyncResponder(onGeoResult, onGeoFault));
+					
+				}
+				
+				//Look for the layer name parameter to figure out what dynamic map layers to turn on
+				//Or if the value is nothing then turn off all dynamic layers and just have the user 
+				//click on the map to select an xy coordinate
+				if (params ["layername"])
+				{
+					var featurename:String=(params ["layername"].toString());
+					if (featurename != "Nothing")
+					{
+						rbFeature.label = "Select a " + featurename + " by clicking on it (it will be in red if we have it mapped).";
+						rbXY.label= "Click on the map where the " + featurename + " is located"
+					}
+					else
+					{
+						rbFeature.label = "Sorry we don't have these mapped. Just click on the map where it is located"
+						lblOr.enabled=false;
+						rbXY.selected=true;
+						rbFeature.enabled = false;
+					}
+				}
+			};
+			
+			//If the geocoding result is posative then zoom to that location
+			//Since the geocoding service is still in Stateplane we need to call the geometry 
+			//servercie to reproject the geocoding result to Web Mercator before we add it the map
+		private function onGeoResult(candidates:Array, token:Object = null):void                
+		{                    
+			if (candidates.length > 0)                    
+			{   
+				                     
+				var addressCandidate:AddressCandidate = candidates[0];
+				var point:MapPoint = addressCandidate.location;
+				var coordGraphic:Graphic = new Graphic(point,smsIdentify);
+				coordGraphic.geometry.spatialReference = new SpatialReference(2230)
+				var outSR:SpatialReference = new SpatialReference(102100);
+				geometry1.addEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectComplete)
+				geometry1.project([point as Geometry],outSR);
+ 				//point.spatialReference = new SpatialReference(102100);              
+				//map1.centerAt(point);                        
+				// Zoom to an appropriate level                        
+				// Note: your tile levels and LOC_NAME might differ...                        
+/* 				if (addressCandidate.location.type.toString() == "esriGeometryPoint")                        
+				{                            
+					map1.scale = 1128.497176;                        
+				}                        
+				else                        
+				{                            
+					map1.scale = 72223.819286;                        
+				}                        
+				myInfo.text = addressCandidate.address.toString(); */  
+				// formated address                    
+			}                    
+			else                    
+			{   
+				myInfo.setStyle("color", "#FB0511")
+				myInfo.text = "Sorry no Address found, try entering another"                     
+				//myInfo.htmlText = "<b><font color='#FF0000'>Found nothing :(</b></font>";                        
+				Alert.show("Sorry, couldn't find a location for this address. " + 
+						"You can manually zoom to the address by using the slider on " + 
+						"the upper left of the map to zoom in and out, and by holding " + 
+						"down the left mouse button while moving the mouse to pan around." +
+						"You can also try reentering the address in the lower left search box");                           
+       
+			}                
+		}                
+		private function onGeoFault(info:Object, token:Object = null):void                
+		{                    
+			myInfo.htmlText = "<b>Failure in geoding service</b>" + info.toString();                    
+			Alert.show("Failure: \n" + info.toString());                
+		}
+		
+		//	Once the dynamicmaplayer has loded 
+		private function dynamicLoadHandler(event:Event):void
+		{
+			
+ 			if (params ["layername"])
+			{
+				if (params ["layername"].toString() !== "Nothing")
+				{
+					dynamLayerID = addLayerOfInterest(dynamic1.visibleLayers);
+					if (dynamLayerID.name == "Tree")
+					{
+						var facilityIDDataColumn:DataGridColumn= new DataGridColumn("FacilityID");
+						facilityIDDataColumn.dataField = "FACILITYID";
+						//facilityIDDataColumn.labelFunction("FacilityID")
+						var tmpArray:Array =  new Array;
+						tmpArray[0] = facilityIDDataColumn;
+						dgAssetDetails.columns = tmpArray;
+					}
+					else if (dynamLayerID.name == "Drainage Ditch/Open Channel")
+					{
+						var facilityIDDataColumn2:DataGridColumn= new DataGridColumn("FacilityID");
+						facilityIDDataColumn2.dataField = "FACILITYID";
+						//facilityIDDataColumn.labelFunction("FacilityID")
+						var tmpArray2:Array =  new Array;
+						tmpArray2[0] = facilityIDDataColumn2;
+						dgAssetDetails.columns = tmpArray2;
+					}
+					else
+					{
+						var facilityIDDataColumn3:DataGridColumn= new DataGridColumn("FacilityID");
+						facilityIDDataColumn3.dataField = "FacilityID";
+						//facilityIDDataColumn.labelFunction("FacilityID");
+						var tmpArray3:Array =  new Array;
+						tmpArray3[0] = facilityIDDataColumn3;
+						dgAssetDetails.columns = tmpArray3;
+						
+					}
+				}
+				else
+				{
+					
+					selectionMethod.selectedValue = "XY"
+				}
+			}
+		}
+		
+		//event that fires when the clear button is clicked, Removes any selected features and 
+		//and clears the graphics layer
+		private function clearHandler(event:Event):void
+		{
+			if (selectionMethod.selectedValue=="XY")
+			{
+				myXYGraphicsLayer.clear()
+				
+			}
+			else
+			{
+					myGraphicsLayer.clear()
+					asd.removeAll()
+				//if you want to allow user to individually remove selected features by selecting them from the datagrid
+				//uncomment code below
+//				if (dgAssetDetails.selectedItem !== null)
+//				{
+//					//var graphic:Graphic = myGraphicsLayer.graphicProvider[(dgAssetDetails.selectedIndex)];
+//					//myGraphicsLayer.remove(graphic);
+//					//asd.removeItemAt(dgAssetDetails.selectedIndex);
+//
+//				}
+			}
+			
+		}
+		
+		
+		//event that handles the submit button being clicked. Depending on the type of selection method chosen adds xy 
+		//or facilityids to the url string and calls the next page of the app. Also tests to make sure either a point 
+		//on the map is clicked or a feature is selected. If not a warning is given
+		private function submitHandler(event:Event):void
+		{
+
+			var sDestination:String = "../troublereport/default.aspx?";
+			
+			sDestination = sDestination + params.toString();
+			sDestination = sDestination + "&maintdepts=Encinitas Street Maintenance";
+			
+			 if (selectionMethod.selectedValue=="XY")
+			{
+				if (myXYGraphicsLayer.numGraphics > 0)
+				{
+					sDestination = sDestination + "&xycoordinates=";
+					var arraycollhope:Array = new Array;
+					var i:int = 1;
+					for each (var gr:Graphic in myXYGraphicsLayer.graphicProvider)
+					{
+						arraycollhope.push(gr.geometry);
+					}
+					//arraycollhope = myXYGraphicsLayer.graphicProvider
+					myXYGraphicsLayer.spatialReference = new SpatialReference(102100);
+
+					var outSR:SpatialReference = new SpatialReference(2230);
+					var arr1:Array
+					geometry1.addEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectSelection)
+					geometry1.project(arraycollhope, outSR);
+			
+				}
+				else
+				{
+					Alert.show("Please select as least one item or location to submit by clicking on it. If you don't " +
+					"see a feature in red to select, chose the 'Click on the map where the item is located' option in the 'Choose your selection method' "+
+					"box below and then clicking on the map where the feature should be");
+				}
+			}
+			else
+			{
+				if (dgAssetDetails.rowCount > 0 && dgAssetDetails.rowCount != 7) //this is a bug in flex. datagrids have 7 rows when first initiated
+				{
+					
+					sDestination = sDestination + "&facilityids=";
+					var cursor:IViewCursor=asd.createCursor();
+					var n:int=1;
+					if (params ["layername"])
+					{
+						var featurename:String=(params ["layername"].toString());
+					}
+					
+					while (!cursor.afterLast)
+					{
+						if (featurename == "Tree")
+						{
+							sDestination = sDestination + cursor.current.FACILITYID; 
+						}
+						else
+						{
+							sDestination = sDestination + cursor.current.FacilityID ;
+						}
+						
+						cursor.moveNext()
+						if (n < asd.length)
+						{
+							sDestination = sDestination + "%2C";
+						}
+						n = n + 1;
+					}
+					//sDestination = sDestination + "&maintdepts=Encinitas Street Maintenance%2CEncinitas Street Maintenance"
+					//sDestination = sDestination + "&issueid=" + issueid
+					var urlRequest2:URLRequest = new URLRequest(sDestination);
+					navigateToURL(urlRequest2,"_self");
+				}
+				else
+				{
+					Alert.show("Please select as least on item to submit by clicking on it. If you don't " +
+					"see an item in red to select, chose the 'Select a location' option in the 'Choose your selection method' "+
+					"box below and then clicking on the map where the item should be");
+				}
+			} 
+			
+			
+		}
+		
+		private function graphicsReprojecj(event:GeometryServiceEvent):void
+		{
+
+		}
+		
+		private function failgraphicsReprojecj(info:Object, token:Object = null):void
+		{
+			Alert.show("OOPS:" + info.toString());
+		}
+		
+		//event that handles address searching. Takes the text input and passes it to the geocoding service
+		private function searchHandler(event:Event):void
+		{
+			var addr:String=myInfo.text;
+			
+			var addressObject:Object = 
+			{
+				Street: addr
+			};
+			var myOutFields:Array = ["Loc_name"];
+			geoCodeTask.addressToLocations(addressObject,myOutFields,new AsyncResponder(onGeoResult, onGeoFault));
+		}
+		
+		
+		//Event to hanle user clicks on the map. If the selection method is by location add a grapgic at that point. 
+		//If the selection method is by feature then do an identify	 
+		private function setMapLocation(event:MapMouseEvent):void
+		{
+			if (map1.level > 7)
+			{
+				if (selectionMethod.selectedValue =="XY")
+				{
+					if (map1.level > 8)
+					{
+						var xyGrapgic:Graphic = new Graphic
+						xyGrapgic.geometry = event.mapPoint
+						myXYGraphicsLayer.add(xyGrapgic)
+					}
+					else
+					{
+						Alert.show("Please zoom in further on the map to ensure maximum accuracy","You are too far out");
+					}
+
+					
+				}
+				else
+				{
+	
+					
+					var arrcoll:ArrayCollection = dynamic1.visibleLayers;
+					var identifyParams:IdentifyParameters = new IdentifyParameters();
+		            identifyParams.returnGeometry = true;
+		            identifyParams.layerIds = arrcoll.toArray()
+					identifyParams.tolerance = 9;
+		            identifyParams.width = map1.width;
+		            identifyParams.height = map1.height;
+		            identifyParams.geometry = map1.toMapFromStage(event.stageX, event.stageY);
+		            identifyParams.layerOption = IdentifyParameters.LAYER_OPTION_ALL;
+		            identifyParams.mapExtent = map1.extent;
+		            identifyParams.spatialReference = map1.spatialReference;
+		            identifyTask.execute(identifyParams);
+				}
+				
+			}
+			else
+			{
+				Alert.show("Please zoom in further on the map to ensure maximum accuracy","You are too far out");
+			}
+
+		}
+		
+		//Get the layername parameter from the URL arguments and loop through the e_reporting map service to find 
+		// that layer name. If found make it visible. Also turn on the parcel layer. They are invisable but this
+		//will allow the user to hover over them and see a map tip of the address
+		private function addLayerOfInterest(currentLayers:ArrayCollection):LayerInfo
+		{
+			var mapLayersArray:ArrayCollection = currentLayers;
+			var allLayers:Array = dynamic1.layerInfos;
+			var params:Object = getURLParameters();
+			var addInfo:LayerInfo
+			for each(var i:LayerInfo in allLayers)
+			{
+				if (i.name == params ["layername"])
+				{
+					mapLayersArray.addItem(i.id);
+					addInfo = i
+				}
+				/* else if (i.name == "Parcel")
+				{
+					mapLayersArray.addItem(i.id);
+					
+				} */
+			}
+			return addInfo
+		}
+
+		 //Get the parameters passed to the application as part of the URL string
+		 private function getURLParameters():Object
+		 {
+		 	var result:URLVariables = new URLVariables();
+		 	try 
+		 	{                    
+		 		if (ExternalInterface.available)
+		 		{ 
+			 		// Use JavaScript to get the search string from the current 
+			 		//browser location. Use substring() to remove leading '?'. 
+			 		// See http://livedocs.adobe.com/flex/3/langref/flash/external/ExternalInterface.html 
+			 		var search:String = ExternalInterface.call("location.search.substring", 1);
+			 		if (search && search.length > 0)
+			 		{
+			 			result.decode(search);
+			 		}
+		 		}
+		 	}
+		 catch (error:Error)
+		 {
+		 	Alert.show(error.message);
+		 }
+		 return result;
+		 }
+		 
+		 
+		 private function identifyCompleteHandler(event:IdentifyEvent):void
+           {
+               for each (var result:IdentifyResult in event.identifyResults)
+               {
+				   switch (result.feature.geometry.type)
+				   {
+					   case Geometry.MAPPOINT:
+					   {
+						   result.feature.symbol   = smsIdentify;
+						   break;
+					   }
+					   case Geometry.POLYLINE:
+					   {
+						   result.feature.symbol   = slsIdentify;
+						   break;
+					   }
+					   case Geometry.POLYGON:
+					   {
+						   result.feature.symbol   = sfsIdentify;
+						   break;
+					   }
+				   }
+
+			   } 
+               		//Alert.show(result.feature.x.toString())
+				   
+				   
+                    myGraphicsLayer.add(result.feature);
+                    var myAtts:Object;
+					
+
+                    myAtts=result.feature.attributes;
+                    asd.addItem(myAtts);
+          			//var collarray:Array = dgAssetDetails.columns
+           }
+         
+         //If the selection method is changed then remove all selected features
+         //from the grapgics layer belonging to the other selection method  
+         private function selectionMethodChangeHandlet(event:ItemClickEvent):void
+         {
+         	if (event.currentTarget.selectedValue == "feature")
+         	{
+         			myXYGraphicsLayer.clear();
+         	}
+         	else
+         	{
+         		asd.removeAll()
+         		myGraphicsLayer.clear()
+         	}
+         }
+         
+           
+         private function identifyFaultHandler(event:FaultEvent):void
+         {
+         	Alert.show(event.fault.toString());
+         }
+           
+         private function mySymbolFunction(event:GraphicEvent):Symbol
+         {	
+		 return null
+		 }
+           
+ 
+           
+		protected function showFloatingWindow():void
+		{
+			// optional display effect
+			var move:Move = new Move;
+			move.xTo = vbMain.width - 320;
+			move.yTo = vbMain.y + 40;
+			
+			if (floatingWindow == null)
+			{ 
+				floatingWindow = InfoFloatPanel(PopUpManager.createPopUp(this, InfoFloatPanel, false) );
+				// listen for close event if youve enabled close button
+				floatingWindow.addEventListener("close", floatingWindow_close );
+				
+				PopUpManager.centerPopUp( floatingWindow );
+				move.play( [floatingWindow] );
+			}
+			else
+			{
+				floatingWindow.visible = true;
+				move.play( [floatingWindow] );
+			}
+		}  
+		protected function floatingWindow_close(event:CloseEvent):void
+		{
+			floatingWindow.visible = false;
+		}
+		
+		//Event this is fired when the map extent is changed. It queries the parcel layer with the 
+		//new extent and uses the returned parcel gemetries to shade and show address when the mouse hovers 
+		//over a parcel. The second if statement also queries the active layer in the reporting map service. 
+		//If features are returned then both selection methods are allowed, if no features returned then 
+		//only selection by XY coordinate is allowed
+		private function onExtentChanged(event:ExtentEvent):void
+		{
+			myParcelGraphicsLayer.clear()
+			if (map1.level > 8) 
+			{
+				queryParcel.geometry = map1.extent;
+				queryParcelLayer.execute(queryParcel, new AsyncResponder(onqueryParcelResult, onqueryParcelFail));
+			}
+			if (map1.level > 7 && (params ["layername"].toString() != "Nothing"))
+			{
+				var returnbooleanQuery:Query = new Query();
+				returnbooleanQuery.returnGeometry = true;
+				returnbooleanQuery.outFields = ["FACILITYID"]
+				returnbooleanQuery.geometry = map1.extent;
+
+				//+  dynamLayerID.id.toString()
+				var returnbooleanQueryTask:QueryTask = new QueryTask("http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/E_Reporting/MapServer/" + dynamLayerID.id.toString());
+				returnbooleanQueryTask.useAMF =true
+				returnbooleanQueryTask.execute(returnbooleanQuery, new AsyncResponder(onqueryDynResult, onqueryDynFail));
+				                                          
+			} 
+		}
+		private function onqueryParcelFail(info:Object, token:Object = null):void
+		{
+			Alert.show(info.toString());
+		}
+		//Handler for the results of the queryParcel task. only add features that are not already in the graphics layer
+		private function onqueryParcelResult(featureSet:FeatureSet, token:Object= null):void
+		{
+			
+			var i:int=0
+			for each (var myGraphic:Graphic in featureSet.features)                
+			{
+				myGraphic.id = i.toString();
+				myGraphic.addEventListener(MouseEvent.ROLL_OVER, graphicRollOverHandler, false, 0 , true);
+				myGraphic.addEventListener(MouseEvent.ROLL_OUT, graphicRollOutHandler, false, 0 ,true);
+				i = i++;
+				var obj:Object = myGraphic.attributes
+				for each (var fld:String in obj)
+				{
+						myGraphic.toolTip = fld
+				}
+				//myGraphic.toolTip = myGraphic.attributes.gisdata.gis.hdl_TaxRec.SitusStreet	//gisdata.gis.hdl_TaxRec.SitusStreet;
+				//myParcelGraphicsLayer.add(myGraphic);
+				myParcelGraphicsLayer.graphicProvider = featureSet.features
+				//var fldalias:Object = featureSet.fieldAliases
+				//var graphicID:String = myGraphic.attributes.gisdata.GIS.tax_Parcel.OBJECTID;
+				/* if (!hashmapOfExistingGraphics[graphicID]) // New feature (not already added to graphics layer)
+				{ 
+					hashmapOfExistingGraphics[graphicID] = 1;
+					myGraphic.id = graphicID;
+					myGraphic.toolTip = myGraphic.attributes.gisdata.gis.hdl_TaxRec.SitusStreet;
+					myParcelGraphicsLayer.add(myGraphic);
+				} */
+			}
+		}
+		
+		private function onqueryDynResult(featureSet:FeatureSet, token:Object= null):void
+		{
+			if (featureSet.features.length >0)
+			{
+				rbFeature.enabled = true;
+				rbFeature.selected = true;
+				
+
+ 				var i:int=0
+				for each (var myGraphic:Graphic in featureSet.features)                
+				{
+					myGraphic.id = i.toString();
+					myGraphic.addEventListener(MouseEvent.ROLL_OVER, featureRollOverHandler, false, 0 , true);
+					myGraphic.addEventListener(MouseEvent.ROLL_OUT, featureRollOutHandler, false, 0 ,true);
+					i = i++;
+					var obj:Object = myGraphic.attributes;
+					for each (var fld:String in obj)
+					{
+							myGraphic.toolTip = fld;
+					}
+				}
+
+				myDynamicServiceSymbolLayer.graphicProvider = featureSet.features 
+			}
+			else
+			{
+				rbFeature.enabled= false;
+				rbXY.selected = true;
+			}
+			
+		}
+		
+		private function onqueryDynFail(info:Object, token:Object = null):void
+		{
+			rbFeature.enabled = false;
+		}
+		
+        private function graphicRollOverHandler(event:MouseEvent):void
+        {
+            glowEffect.play([event.target]);
+        }
+
+        private function graphicRollOutHandler(event:MouseEvent):void
+        {
+            //glowEffect.play([event.target], true); // play reversed
+            setTimeout(cleanupGlowEffect, glowEffect.duration, event.target);
+        }
+        private function featureRollOverHandler(event:MouseEvent):void
+        {
+            map1.openHandCursorVisible = false;
+        	var glow:GlowFilter = new GlowFilter();
+			glow.color = 0x009922;
+			glow.alpha = 1;
+			glow.blurX = 25;
+			glow.blurY = 25;
+			glow.quality = 2;
+			var graphic:Graphic = ( event.target as Graphic);
+			graphic.filters = [glow];
+			glowEffect.play([event.target]);
+        }
+
+        private function featureRollOutHandler(event:MouseEvent):void
+        {
+			
+			map1.openHandCursorVisible = true;
+			var graphic:Graphic = ( event.target as Graphic);
+			graphic.filters = [];
+			setTimeout(cleanupGlowEffect, glowEffect.duration, event.target);
+        }
+
+        private function cleanupGlowEffect(graphic:Graphic):void
+        {
+            graphic.filters = []; // remove leftover artifacts
+        }
+        
+			private function onProjectSelection(event:GeometryServiceEvent):void
+			{
+				geometry1.removeEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectSelection);
+				var sDestination:String = "../troublereport/default.aspx?";
+				sDestination = sDestination + params.toString();
+				sDestination = sDestination + "&maintdepts=Encinitas Street Maintenance";
+				sDestination = sDestination + "&xycoordinates=";
+				var i:int = 1;
+				
+				for each (var mapPoint:MapPoint in (event.result as Array))
+				{
+					//var mapPoint:MapPoint
+					//mapPoint = xygraphic2.geometry as MapPoint
+					
+					sDestination = sDestination + "x" + mapPoint.x.toString() + "y" + mapPoint.y.toString()
+					if (i < event.result.length)
+					{
+						sDestination = sDestination + "%2C";
+						i = i + 1
+					} 
+					
+				}
+				var urlRequest:URLRequest = new URLRequest(sDestination);
+				navigateToURL(urlRequest,"_self");
+			}  
+
+        private function onProjectComplete(event:GeometryServiceEvent):void
+        {
+			geometry1.removeEventListener(GeometryServiceEvent.PROJECT_COMPLETE, onProjectComplete);
+			var pt:MapPoint = (event.result as Array)[0]as MapPoint;
+			map1.centerAt(pt);
+			map1.scale = 1128.497176;
+        }
+        
+
+        private function onProjectFault(info:Object, token:Object = null):void
+        {
+        	Alert.show(info.toString());
+        }
+		                     
+		]]>
+	</fx:Script>
+	
+	<fx:Style source="/EncinitasGIS/src/Styles/EncFlexStyle.css"/>
+	
+<fx:Declarations>
+	<esri:Locator id="geoCodeTask"
+				  url="http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/GISSQL_Streets/GeocodeServer" />
+	
+	<esri:GeometryService id="geometry1"
+						  concurrency="last"
+						  fault="onProjectFault(event)"
+						  url="http://coemapservices.encinitasca.gov/encgis/rest/services/Utilities/Geometry/GeometryServer" />
+	<!--projectComplete="onProjectComplete(event)"-->
+	
+	<!-- Identify Task -->
+	<esri:IdentifyTask id="identifyTask"
+					   executeComplete="identifyCompleteHandler(event)"  
+					   url="http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/E_Reporting/MapServer"
+					   fault="identifyFaultHandler(event)" showBusyCursor="true" />
+	
+	<!-- Query Task for Parcels -->
+	<esri:QueryTask id="queryParcelLayer" url="http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/E_Reporting/MapServer/23"
+					useAMF="true"/>
+	<esri:Query id="queryParcel" outFields="gispub.gis.hdl_TaxRec.SitusStreet" returnGeometry="true"/>
+	
+	<!-- Symbol for Identify Result as Point -->
+	
+	<esri:SimpleMarkerSymbol id="smsIdentify" color="0x33CC33" size="15" alpha="0.8" style="diamond" >
+		<esri:SimpleLineSymbol color="0x006633" width="1" alpha="1" style="solid" />
+	</esri:SimpleMarkerSymbol>
+	<!-- Symbol for Identify Result as Polyline -->
+	<esri:SimpleLineSymbol id="slsIdentify" style="solid" color="0x00FF00" width="2" alpha="1"/>
+	
+	<!-- Symbol for Identify Result as Polygon -->
+	<esri:SimpleFillSymbol id="sfsIdentify"/>
+	<esri:SimpleFillSymbol id="nullSymbol" alpha=".15" color="0xffffff" />
+	<!-- Symbol for dymanicmap service Result as Point -->
+	<esri:SimpleMarkerSymbol id="smsFeature" style="diamond" color="0xffffff" size="20" alpha=".15" />
+	<!-- Symbol for the glow effect used for mouse over -->
+	<mx:Glow id="glowEffect"
+			 alphaFrom="1" alphaTo="0.65"
+			 blurXFrom="0.0" blurXTo="20.0"
+			 blurYFrom="0.0" blurYTo="20.0"
+			 color="0x0000FF" inner="true" knockout="false"/>
+	
+	<s:RadioButtonGroup id="selectionMethod" itemClick="selectionMethodChangeHandlet(event)" />
+</fx:Declarations>
+
+    
+    
+	<mx:Image id="bgImage" alpha=".75" source="Styles/plain_bluesteel.JPG" maintainAspectRatio="false" width="100%" height="100%"/>
+    
+    <mx:VBox x="15.5" y="10" height="100%" width="100%">
+    
+        <mx:VBox verticalAlign="bottom" id="vbMain" width="100%" height="100%">
+			<mx:HBox horizontalGap="0" width="100%" id="hbHeader"> 
+				<mx:Image source="@Embed('Styles/City Logo_Banner.JPG')"/>
+				<mx:Image width="100%" source="@Embed('Styles/BkGd.gif')" maintainAspectRatio="false" id="imgHeader2"/>
+			</mx:HBox>
+            <esri:Map  id="map1" mapClick="setMapLocation(event)" width="100%" height="72%" logoVisible="false" styleName="Map"
+            	extentChange="onExtentChanged(event)" >
+<!--             	<esri:extent>
+            		<esri:Extent	 	
+            			xmin= "6231357.51688889"
+            			ymin= "1945978.23166667"
+            			xmax= "6272569.32244444"
+            			ymax= "1977259.48166667">
+            			<esri:SpatialReference wkid="102100" />
+            		</esri:Extent>
+            	</esri:extent>-->
+            	<esri:lods>
+           		<esri:LOD resolution="19.1092570712683" scale="72223.819286"/>            
+            		<esri:LOD resolution="9.55462853563415" scale="36111.909643"/>            
+            		<esri:LOD resolution="6.3500127000254" scale="24000"/>            
+            		<esri:LOD resolution="4.77731426794937" scale="18055.954822"/>
+            		<esri:LOD resolution="3.1750063500127" scale="12000"/>
+            		<esri:LOD resolution="2.38865713397468" scale="9027.977411"/>
+            		<esri:LOD resolution="1.19432856685505" scale="4513.988705"/>
+            		<esri:LOD resolution="0.597164283559817" scale="2256.994353"/>
+            		<esri:LOD resolution="0.298582141647617" scale="1128.497176"/>
+            		<esri:LOD resolution="0.158750317500635" scale="600"/>
+            		<esri:LOD resolution="0.0793751587503175" scale="300"/>
+            		
+            	</esri:lods>
+
+
+            	<esri:ArcGISTiledMapServiceLayer id="tiledMapS1"           
+            	   	url="http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/Imagery_2009_Web/MapServer"/>             	
+            	
+            	<esri:ArcGISTiledMapServiceLayer id="tiledMapR1"           
+            	   	url="http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/Basemap/MapServer" /> 
+            	   	
+        		
+            	<esri:ArcGISDynamicMapServiceLayer id="dynamic1" load="dynamicLoadHandler(event)" >
+            		<esri:url>http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/E_Reporting/MapServer</esri:url> 
+            	</esri:ArcGISDynamicMapServiceLayer>
+            	
+          		
+<!--            	<esri:GraphicsLayer id="myGraphicsLayer" symbol="{result}" graphicAdd="mySymbolFunction(event)"  />
+            	<esri:GraphicsLayer id="myXYGraphicsLayer" symbol="{result}" graphicAdd="mySymbolFunction(event)"/>-->
+				<esri:GraphicsLayer id="myGraphicsLayer" />
+				<esri:GraphicsLayer id="myXYGraphicsLayer" />
+            	<esri:GraphicsLayer id="myParcelGraphicsLayer"  symbol="{nullSymbol}" />
+            	<esri:GraphicsLayer id="myDynamicServiceSymbolLayer" symbol="{smsFeature}" spatialReference="{new SpatialReference(102100)}"/>
+
+            	
+            	
+            </esri:Map>
+            <mx:HBox height="15%" paddingRight="10" width="100%" verticalAlign="bottom" >
+                <s:BorderContainer borderStyle="inset" height="100%" width="20%" borderWeight="3" >
+					<s:VGroup horizontalAlign="center" verticalAlign="middle" paddingLeft="10"  >
+						<mx:Label text="Search for a new address" textAlign="center" fontWeight="bold" fontSize="12"/>
+						<mx:TextInput id="myInfo" width="90%"/>
+						<mx:Label text="&quot;505 S Vulcan Ave&quot; or &quot;Vulcan &amp; E&quot; " selectable="true"/>
+						<mx:Button label="Search" id="btnSearchAgain" color="#000000" click="searchHandler(event)"/>
+					</s:VGroup>
+
+                </s:BorderContainer>
+				<s:BorderContainer height="100%" borderStyle="inset" width="40%" borderWeight="3" >
+					<s:VGroup horizontalAlign="left" verticalAlign="middle" paddingTop="10" paddingLeft="10">
+							
+							<s:Label text="Choose your selection method" id="lblSelMethod" fontWeight="bold" fontSize="12" textAlign="center"/>
+							<s:RadioButton id="rbFeature" value="feature" label="Select a feature" group="{selectionMethod}" selected="true"/>
+							<s:Label text="Or" id="lblOr" width="107" textAlign="center" fontWeight="bold" fontSize="12" />
+							<s:RadioButton id="rbXY" value="XY" label="Click on the map where the item is located" group="{selectionMethod}"/>
+
+					</s:VGroup>
+				</s:BorderContainer>
+
+                <s:BorderContainer height="100%" width="25%"  borderStyle="inset" borderWeight="3" >
+                    <s:layout>
+                        <s:VerticalLayout/>
+                    </s:layout>
+					<s:VGroup verticalAlign="middle" horizontalAlign="center" gap="15" width="100%" height="100%" >
+                    	<mx:Button label="Clear any selected items or locations" name="btnClear" click="clearHandler(event)" width="241" />
+                    	<mx:Button label="Submit selected items or locations" name="btnSubmit" click="submitHandler(event)" width="241"/>
+					</s:VGroup>
+                </s:BorderContainer>
+                <mx:Canvas width="15%" height="100%">
+                    <mx:Image width="100%" height="100%" source="@Embed('Styles/City Logo_Banner.JPG')" right="0" bottom="0" scaleContent="true" autoLoad="true"/>
+                    <mx:DataGrid id="dgAssetDetails" enabled="true" 
+                    	dataProvider="{asd}" height="1%" editable="false" borderStyle="none" visible="false" bottom="56" left="0" width="25%">        	
+                    </mx:DataGrid>
+                </mx:Canvas>
+                
+            </mx:HBox>
+        </mx:VBox>
+    </mx:VBox>
+    
+</s:Application>

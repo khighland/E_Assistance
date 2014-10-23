@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<actionScriptProperties analytics="false" mainApplicationPath="E_Assistance.mxml" projectUUID="0f724509-c808-4252-a21f-c15a17dd61a9" version="11">
+  <compiler additionalCompilerArguments="-locale en_US" autoRSLOrdering="true" copyDependentFiles="true" fteInMXComponents="false" generateAccessible="false" htmlExpressInstall="true" htmlGenerate="true" htmlHistoryManagement="false" htmlPlayerVersionCheck="true" includeNetmonSwc="false" outputFolderLocation="C:/Inetpub/wwwroot/EASSISTANCE4" outputFolderPath="bin-debug" removeUnusedRSL="true" sourceFolderPath="src" strict="true" targetPlayerVersion="0.0.0" useApolloConfig="false" useDebugRSLSwfs="true" useFlashSDK="false" verifyDigests="true" warn="true">
+    <compilerSourcePath/>
+    <libraryPath defaultLinkType="1">
+      <libraryPathEntry kind="4" path=""/>
+      <libraryPathEntry kind="3" linkType="1" path="C:/Program Files/Adobe/Adobe Flash Builder 4.7/sdks/ArcGIS_Flex2.5/libs/agslib-2.5-2011-11-30.swc" useDefaultLinkType="false"/>
+      <libraryPathEntry kind="3" linkType="1" path="/EncinitasGIS/bin/EncinitasGIS.swc" useDefaultLinkType="false"/>
+    </libraryPath>
+    <sourceAttachmentPath/>
+  </compiler>
+  <applications>
+    <application path="E_Assistance.mxml"/>
+  </applications>
+  <modules>
+    <module application="src/E_Assistance.mxml" destPath="InfoFloatPanel.swf" optimize="true" sourcePath="src/InfoFloatPanel.mxml"/>
+  </modules>
+  <workers/>
+  <buildCSSFiles/>
+  <flashCatalyst validateFlashCatalystCompatibility="false"/>
+</actionScriptProperties>

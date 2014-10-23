@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow 			   xmlns:fx="http://ns.adobe.com/mxml/2009"
+						   xmlns:s="library://ns.adobe.com/flex/spark"
+						   xmlns:mx="library://ns.adobe.com/flex/mx" 
+						   xmlns:esri="http://www.esri.com/2008/ags"  
+	width="326" 
+	height.Start="514"
+	height.Mini = "82"
+	title="Instructions"
+	creationComplete="init()" alpha="1.0"  backgroundAlpha="1.0">
+	<s:states>
+		<s:State name="Mini" basedOn=""/>
+		<s:State name="Start" basedOn="Mini" />
+	</s:states>
+	
+<!--	<mx:states >
+		<mx:State name="Mini" basedOn="">
+			<mx:RemoveChild target="{message}"/>
+			<mx:RemoveChild target="{linkbutton1}"/>
+			<mx:SetProperty name="height" value="82"/>
+            <mx:SetProperty target="{linkCanvas}" name="height" value="100%"/>
+            <mx:AddChild relativeTo="{linkCanvas}" position="lastChild">
+            	<mx:LinkButton label="Show Instructions" click="currentState=''" fontSize="14" fontStyle="italic" width="100%" height="100%"/>
+            </mx:AddChild>
+		</mx:State>
+		<mx:State name="Start" basedOn="Mini"/>
+	</mx:states>
+-->
+	
+	<fx:Script>
+		<![CDATA[
+
+		import mx.effects.easing.Bounce;
+			[Bindable]
+			private var msgtxt:String;
+			private function init():void
+			{
+				msgtxt = "<body><u>1.	To choose a feature or location to report a problem on:</u>" + 
+				"<ul>" +
+				"<li>If you see a RED FEATURE on the map that corresponds with the location of the problem you’d like to report, click on it with your mouse. </li>" +
+				"<li>If there is NO RED FEATURE, choose the option ‘Click on the map where the item is located’ in the 'Choose your selection method' box below and then click on the LOCATION on the map that corresponds with the problem you’d " + 
+					"  like to report.</li>" +
+				"<li>Then click the SUBMIT button.</li><br/>" +
+				"</ul>" +
+				"<u>2.	To locate an Address or Intersection:</u>" +
+				"<li>Enter a new address in the 'Search for a new address' box below to zoom to that address.</li><br/>" +
+				"<ul>" +
+				"<u>3.	To ZOOM in or out:</u>" +
+				"<ul>" +
+				"</ul>" +
+				"<li>Use the slider in the upper-left corner of the map, or use your mouse wheel.</li><br/>" +
+				"</ul>" +
+				"<u>4.	To PAN (move) the map around:</u>" +
+				"<ul>" +
+				"<li>Hold down the left mouse button while moving the mouse on the map.</li>" +
+				"<ul>" +
+				"<br/>" +
+				"</body>" +
+				"<b>When you are ready click on the 'Submit selected items or locations' button</b>"
+				
+				this.currentState = "Mini";
+			}
+			private function onClick(event:MouseEvent):void
+			{
+				if (currentState =="Mini") 
+				{
+					
+					setCurrentState("Start");
+					lb1.label= "Hide Instructiuons";
+				}
+				else
+				{
+					setCurrentState("Mini");
+					lb1.label= "Show Instructiuons";
+				}
+			}
+		]]>
+	</fx:Script>
+	<s:VGroup includeIn="Mini, Start"   top.Mini="0" bottom.Mini="26" bottom.Start="448" top.Start="0">
+		<mx:Text  id="message"  htmlText="{msgtxt}" height="90%" width="325"
+				 alpha="0.63" paddingTop="0" textAlign="left" fontAntiAliasType="advanced" includeIn="Start"/>
+	
+			<mx:LinkButton id="lb1" label="Show Instructions" click="onClick(event)" 
+						   fontSize="15" alpha="0.5" fontStyle="italic" 
+						   color="#000000" width="325" height="100%" includeIn="Mini, Start"/>
+
+	</s:VGroup>
+
+	
+		
+	
+	
+</s:TitleWindow>

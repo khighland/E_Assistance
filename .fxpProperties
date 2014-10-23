@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<fxpProperties abbreviated="false" authoringTool="Flex Builder" compiles="true" parentProject="0f724509-c808-4252-a21f-c15a17dd61a9" projectUUID="0f724509-c808-4252-a21f-c15a17dd61a9" sdkVersion="4.1.0" uuid="05e16156-9210-4a41-b547-f4d803698d61" version="4">
+  <projects>
+    <project filename="EncinitasGIS.fxpl" position="2" projectUUID="7adf6fa7-75e3-4815-a5ed-6ed308c74517" uuid="05e16156-9210-4a41-b547-f4d803698d61"/>
+  </projects>
+  <src/>
+  <swc>
+    <linked location="sdkPlaceHolder" path="sdkPlaceHolder" position="0" uuid="05e16156-9210-4a41-b547-f4d803698d61"/>
+    <linked location="C:/Program Files/Adobe/Adobe Flash Builder 4/sdks/ArcGIS_Flex2.3.1/ArcGIS_Flex/libs/agslib-2.3.1-2011-04-26.swc" path="/linked-swc/agslib-2.3.1-2011-04-26.swc" position="1" uuid="05e16156-9210-4a41-b547-f4d803698d61"/>
+  </swc>
+  <misc>
+    <linked location="C:/Temp/E-Assist_Staging" path="/bin-release7" position="0" uuid="05e16156-9210-4a41-b547-f4d803698d61"/>
+    <linked location="T:/GIS/DataProjects/WebAppsStaging/E-Assist_Staging" path="/bin-release9" position="0" uuid="05e16156-9210-4a41-b547-f4d803698d61"/>
+  </misc>
+  <theme/>
+</fxpProperties>

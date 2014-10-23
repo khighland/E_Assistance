@@ -1,0 +1,49 @@
+'declare web app variable, set variable to be an IE application
+
+
+'set visibility of the web app, can be set to false to run in the background
+
+
+
+<job id="IncludeExample">
+
+   <script language="VBScript">
+	Dim webApp
+	Set webApp= CreateObject("InternetExplorer.Application")
+	webApp.Visible = false
+	Dim counter
+	counter = 0
+	
+	dim services(14)
+	services(0)="E_Reporting/MapServer"
+	services(1)="E_Zoning/MapServer"
+	services(2)="GISSQL_Intersection/GeocodeServer"
+	services(3)="GISSQL_Address/GeocodeServer"
+	services(4)="GISSQL_APN/GeocodeServer"
+	services(5)="GISSQL_Streets/GeocodeServer"
+	services(6)="Imagery_2005/MapServer"
+	services(7)="Imagery_Uncached/MapServer"
+	services(8)="LandBase_Cache/MapServer"
+	services(9)="LandRecords/MapServer"
+	services(10)="ParcelOverlayZones/GPServer"
+	services(11)="Parcels/MapServer"
+	services(12)="Public_Zoning/MapServer"
+	services(14)="Road_Basemap/MapServer"
+
+
+	Do while counter < 13
+    		For Each x in services      
+      			webApp.Navigate "http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/"& x
+      			wscript.sleep(5000)
+			counter = counter + 1
+    		Next'  
+  		
+	Loop
+
+	webApp.quit
+	Set webApp = nothing
+
+
+
+   </script>
+</job>
