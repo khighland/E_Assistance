@@ -694,7 +694,7 @@
             graphic.filters = []; // remove leftover artifacts
         }
         
-			private function onProjectSelection(event:GeometryServiceEvent):void
+			private function onProjectSelection(event:Array, myTok:Object = null):void
 			{
 				geometry1.removeEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectSelection);
 				var sDestination:String = "../troublereport/default.aspx?";
@@ -703,13 +703,14 @@
 				sDestination = sDestination + "&xycoordinates=";
 				var i:int = 1;
 				
-				for each (var mapPoint:MapPoint in (event.result as Array))
+				//for each (var mapPoint:MapPoint in (event.result as Array))
+				for each (var mapPoint:MapPoint in event)
 				{
 					//var mapPoint:MapPoint
 					//mapPoint = xygraphic2.geometry as MapPoint
 					
 					sDestination = sDestination + "x" + mapPoint.x.toString() + "y" + mapPoint.y.toString()
-					if (i < event.result.length)
+					if (i < event.length)
 					{
 						sDestination = sDestination + "%2C";
 						i = i + 1
