@@ -4,7 +4,7 @@
     <compilerSourcePath/>
     <libraryPath defaultLinkType="1">
       <libraryPathEntry kind="4" path=""/>
-      <libraryPathEntry kind="3" linkType="1" path="C:/Program Files/Adobe/Adobe Flash Builder 4.7/sdks/ArcGIS_Flex2.5/libs/agslib-2.5-2011-11-30.swc" useDefaultLinkType="false"/>
+      <libraryPathEntry kind="3" linkType="1" path="C:/Program Files/Adobe/Adobe Flash Builder 4.7/sdks/ArcGIS_Flex3.6/libs/agslib-3.6-2013-12-13.swc" useDefaultLinkType="false"/>
       <libraryPathEntry kind="3" linkType="1" path="/EncinitasGIS/bin/EncinitasGIS.swc" useDefaultLinkType="false"/>
     </libraryPath>
     <sourceAttachmentPath/>

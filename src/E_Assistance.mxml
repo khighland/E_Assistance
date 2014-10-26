@@ -17,7 +17,6 @@
 	
 	<fx:Script>
 		<![CDATA[
-		 
 			import com.esri.ags.FeatureSet;
 			import com.esri.ags.Graphic;
 			import com.esri.ags.Map;
@@ -27,25 +26,30 @@
 			import com.esri.ags.events.GraphicEvent;
 			import com.esri.ags.events.IdentifyEvent;
 			import com.esri.ags.events.MapMouseEvent;
-			import com.esri.ags.geometry.*;
+			import com.esri.ags.geometry.Geometry;
+			import com.esri.ags.geometry.MapPoint;
 			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
 			import com.esri.ags.layers.supportClasses.LayerInfo;
 			import com.esri.ags.symbols.Symbol;
 			import com.esri.ags.tasks.GeometryService;
 			import com.esri.ags.tasks.QueryTask;
 			import com.esri.ags.tasks.supportClasses.AddressCandidate;
+			import com.esri.ags.tasks.supportClasses.AddressToLocationsParameters;
 			import com.esri.ags.tasks.supportClasses.IdentifyParameters;
 			import com.esri.ags.tasks.supportClasses.IdentifyResult;
+			import com.esri.ags.tasks.supportClasses.ProjectParameters;
 			import com.esri.ags.tasks.supportClasses.Query;
 			
 			import flash.filters.GlowFilter;
 			import flash.net.navigateToURL;
 			
 			import mx.collections.ArrayCollection;
+			import mx.collections.ArrayList;
+			import mx.collections.IList;
 			import mx.collections.IViewCursor;
 			import mx.controls.Alert;
 			import mx.controls.DataGrid;
-			import mx.controls.dataGridClasses.*;
+			import mx.controls.dataGridClasses.DataGridColumn;
 			import mx.effects.Move;
 			import mx.events.CloseEvent;
 			import mx.events.ItemClickEvent;
@@ -77,7 +81,11 @@
 					}
 					var myOutFields:Array = ["Loc_name"];
 					//Alert.show(addr.substring(0,(addr.lastIndexOf(" "))))
-					geoCodeTask.addressToLocations(addressObject,myOutFields, new AsyncResponder(onGeoResult, onGeoFault));
+					var addrparams:AddressToLocationsParameters = new AddressToLocationsParameters;
+					addrparams.address = addressObject;
+					addrparams.outFields= myOutFields;
+					//geoCodeTask.addressToLocations(addressObject,myOutFields, new AsyncResponder(onGeoResult, onGeoFault));
+					geoCodeTask.addressToLocations(addrparams,new AsyncResponder(onGeoResult,onGeoFault));
 					
 				}
 				
@@ -102,7 +110,7 @@
 				}
 			};
 			
-			//If the geocoding result is posative then zoom to that location
+			//If the geocoding result is positive then zoom to that location
 			//Since the geocoding service is still in Stateplane we need to call the geometry 
 			//servercie to reproject the geocoding result to Web Mercator before we add it the map
 		private function onGeoResult(candidates:Array, token:Object = null):void                
@@ -113,10 +121,15 @@
 				var addressCandidate:AddressCandidate = candidates[0];
 				var point:MapPoint = addressCandidate.location;
 				var coordGraphic:Graphic = new Graphic(point,smsIdentify);
+				var proParam:ProjectParameters = new ProjectParameters();
+				
 				coordGraphic.geometry.spatialReference = new SpatialReference(2230)
 				var outSR:SpatialReference = new SpatialReference(102100);
-				geometry1.addEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectComplete)
-				geometry1.project([point as Geometry],outSR);
+				proParam.outSpatialReference = outSR;
+				proParam.geometries = [point as Geometry];
+				//geometry1.addEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectComplete)
+				//geometry1.project([point as Geometry],outSR);
+				geometry1.project(proParam,new AsyncResponder(onProjectComplete,onProjectFault))
  				//point.spatialReference = new SpatialReference(102100);              
 				//map1.centerAt(point);                        
 				// Zoom to an appropriate level                        
@@ -248,11 +261,15 @@
 					}
 					//arraycollhope = myXYGraphicsLayer.graphicProvider
 					myXYGraphicsLayer.spatialReference = new SpatialReference(102100);
-
+					var proParam:ProjectParameters = new ProjectParameters();
+					
 					var outSR:SpatialReference = new SpatialReference(2230);
-					var arr1:Array
-					geometry1.addEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectSelection)
-					geometry1.project(arraycollhope, outSR);
+					proParam.outSpatialReference= outSR;
+					proParam.geometries=arraycollhope
+					
+					//geometry1.addEventListener(GeometryServiceEvent.PROJECT_COMPLETE,onProjectSelection)
+					//geometry1.project(arraycollhope, outSR);
+					geometry1.project(proParam,new AsyncResponder(onProjectSelection,onProjectFault));
 			
 				}
 				else
@@ -329,7 +346,14 @@
 				Street: addr
 			};
 			var myOutFields:Array = ["Loc_name"];
-			geoCodeTask.addressToLocations(addressObject,myOutFields,new AsyncResponder(onGeoResult, onGeoFault));
+			//geoCodeTask.addressToLocations(addressObject,myOutFields,new AsyncResponder(onGeoResult, onGeoFault));
+			
+			var addrparams:AddressToLocationsParameters = new AddressToLocationsParameters;
+			addrparams.address = addressObject;
+			addrparams.outFields= myOutFields;
+			//geoCodeTask.addressToLocations(addressObject,myOutFields, new AsyncResponder(onGeoResult, onGeoFault));
+			geoCodeTask.addressToLocations(addrparams,new AsyncResponder(onGeoResult,onGeoFault));
+			
 		}
 		
 		
@@ -358,7 +382,7 @@
 				{
 	
 					
-					var arrcoll:ArrayCollection = dynamic1.visibleLayers;
+					var arrcoll:IList = dynamic1.visibleLayers;
 					var identifyParams:IdentifyParameters = new IdentifyParameters();
 		            identifyParams.returnGeometry = true;
 		            identifyParams.layerIds = arrcoll.toArray()
@@ -383,18 +407,29 @@
 		//Get the layername parameter from the URL arguments and loop through the e_reporting map service to find 
 		// that layer name. If found make it visible. Also turn on the parcel layer. They are invisable but this
 		//will allow the user to hover over them and see a map tip of the address
-		private function addLayerOfInterest(currentLayers:ArrayCollection):LayerInfo
+		private function addLayerOfInterest(currentLayers:IList):LayerInfo
 		{
-			var mapLayersArray:ArrayCollection = currentLayers;
+			//var mapLayersArray:ArrayCollection = currentLayers;
+			var mapLayersArray:IList 
 			var allLayers:Array = dynamic1.layerInfos;
 			var params:Object = getURLParameters();
 			var addInfo:LayerInfo
 			for each(var i:LayerInfo in allLayers)
 			{
 				if (i.name == params ["layername"])
-				{
-					mapLayersArray.addItem(i.id);
-					addInfo = i
+				{					
+					//mapLayersArray.addItem(i.layerId);
+					if (dynamic1.visibleLayers){
+						dynamic1.visibleLayers.addItem(i.layerId);
+											
+					}
+					else{
+						var arrayList:ArrayList=new ArrayList;
+						arrayList.addItem(i.layerId);
+						dynamic1.visibleLayers = arrayList;
+					}
+					addInfo = i;
+
 				}
 				/* else if (i.name == "Parcel")
 				{
@@ -543,7 +578,7 @@
 				returnbooleanQuery.geometry = map1.extent;
 
 				//+  dynamLayerID.id.toString()
-				var returnbooleanQueryTask:QueryTask = new QueryTask("http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/E_Reporting/MapServer/" + dynamLayerID.id.toString());
+				var returnbooleanQueryTask:QueryTask = new QueryTask("http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/E_Reporting/MapServer/" + dynamLayerID.layerId.toString());
 				returnbooleanQueryTask.useAMF =true
 				returnbooleanQueryTask.execute(returnbooleanQuery, new AsyncResponder(onqueryDynResult, onqueryDynFail));
 				                                          
@@ -685,13 +720,20 @@
 				navigateToURL(urlRequest,"_self");
 			}  
 
-        private function onProjectComplete(event:GeometryServiceEvent):void
+/*        private function onProjectComplete(event:GeometryServiceEvent, token:Object = null):void
         {
 			geometry1.removeEventListener(GeometryServiceEvent.PROJECT_COMPLETE, onProjectComplete);
 			var pt:MapPoint = (event.result as Array)[0]as MapPoint;
 			map1.centerAt(pt);
 			map1.scale = 1128.497176;
-        }
+        }*/
+			private function onProjectComplete(event:Array, token:Object = null):void
+			{
+				geometry1.removeEventListener(GeometryServiceEvent.PROJECT_COMPLETE, onProjectComplete);
+				var pt:MapPoint = event[0]as MapPoint;
+				map1.centerAt(pt);
+				map1.scale = 1128.497176;
+			}
         
 
         private function onProjectFault(info:Object, token:Object = null):void
@@ -723,7 +765,7 @@
 	<!-- Query Task for Parcels -->
 	<esri:QueryTask id="queryParcelLayer" url="http://coemapservices.encinitasca.gov/encgis/rest/services/Unsecured/E_Reporting/MapServer/23"
 					useAMF="true"/>
-	<esri:Query id="queryParcel" outFields="gispub.gis.hdl_TaxRec.SitusStreet" returnGeometry="true"/>
+	<esri:Query id="queryParcel" outFields="SitusStreet" returnGeometry="true"/>
 	
 	<!-- Symbol for Identify Result as Point -->
 	
